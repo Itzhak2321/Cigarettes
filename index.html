@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ניהול קבלות והזמנות פאקטים</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Rubik', sans-serif;
+            background-color: #f3f4f6;
+        }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printable-receipt, #printable-receipt * {
+                visibility: visible;
+            }
+            #printable-receipt {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 pb-24 min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <i class="fa-solid fa-boxes-packing text-2xl text-amber-400"></i>
+                <h1 class="text-xl font-bold tracking-wide">קבלות ופאקטים</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="toggleManageModal()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>עריכת מחירון</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-4xl mx-auto px-4 pt-4">
+
+        <!-- Search & Customer Input Panel -->
+        <div class="bg-white rounded-xl shadow-sm p-4 mb-4 border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">שם הלקוח</label>
+                <div class="relative">
+                    <i class="fa-solid fa-user absolute right-3 top-3 text-slate-400"></i>
+                    <input type="text" id="customer-name" value="לקוח קבוע" class="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-sm font-medium">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">חיפוש מוצר מהיר</label>
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute right-3 top-3 text-slate-400"></i>
+                    <input type="text" id="search-input" oninput="filterProducts()" placeholder="חפש לפי שם מוצר..." class="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-sm">
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection Status Banner -->
+        <div id="cloud-status-bar" class="mb-3 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center justify-between bg-emerald-100 text-emerald-800 border border-emerald-200">
+            <span><i class="fa-solid fa-cloud-check text-emerald-600 ml-1"></i> מחובר לענן Supabase</span>
+        </div>
+
+        <!-- Products Grid -->
+        <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <!-- Product items injected by JavaScript -->
+        </div>
+    </main>
+
+    <!-- Floating Bottom Bar -->
+    <div class="fixed bottom-0 inset-x-0 bg-slate-900 text-white border-t border-slate-800 shadow-lg z-20 px-4 py-3">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div>
+                <div class="text-xs text-slate-400">סה"כ פאקטים: <span id="total-cartons-count" class="font-bold text-amber-400">0</span></div>
+                <div class="text-xl font-black text-white"><span id="total-price-sum">0</span> ₪</div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="resetCart()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-lg text-sm font-semibold transition">
+                    איפוס
+                </button>
+                <button onclick="openReceiptModal()" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-5 py-2 rounded-lg text-sm shadow-md transition flex items-center gap-2">
+                    <i class="fa-solid fa-receipt text-base"></i>
+                    <span>הפק קבלה</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Modal -->
+    <div id="receipt-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden flex flex-col max-h-[90vh]">
+            <!-- Modal Header -->
+            <div class="bg-slate-900 text-white p-4 flex justify-between items-center no-print">
+                <h3 class="font-bold text-lg"><i class="fa-solid fa-file-invoice text-amber-400 ml-2"></i>קבלה מוכנה</h3>
+                <button onclick="closeReceiptModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+
+            <!-- Receipt Content (Printable) -->
+            <div id="printable-receipt" class="p-6 overflow-y-auto bg-white text-slate-800">
+                <div class="text-center border-b pb-4 mb-4">
+                    <h2 class="text-2xl font-black tracking-tight text-slate-900">סיכום חשבון - פאקטים</h2>
+                    <p class="text-xs text-slate-500 mt-1" id="receipt-date"></p>
+                    <p class="text-xs font-semibold text-slate-700 mt-1">לכבוד: <span id="receipt-customer-name" class="font-bold text-amber-600"></span></p>
+                </div>
+
+                <!-- Items Table -->
+                <table class="w-full text-right text-sm mb-4">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-slate-400 text-xs">
+                            <th class="py-2">מוצר</th>
+                            <th class="py-2 text-center">כמות</th>
+                            <th class="py-2 text-left">סה"כ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="receipt-items-body" class="divide-y divide-slate-100">
+                        <!-- Items populated dynamically -->
+                    </tbody>
+                </table>
+
+                <!-- Receipt Total -->
+                <div class="border-t-2 border-slate-900 pt-3 flex justify-between items-center font-black text-lg">
+                    <span>סה"כ לתשלום:</span>
+                    <span id="receipt-total-sum" class="text-emerald-600 text-xl"></span>
+                </div>
+                <div class="flex justify-between items-center text-xs text-slate-500 mt-1">
+                    <span>סה"כ פאקטים:</span>
+                    <span id="receipt-total-cartons" class="font-bold"></span>
+                </div>
+
+                <div class="mt-6 text-center text-xs text-slate-400">
+                    תודה רבה!
+                </div>
+            </div>
+
+            <!-- Modal Action Buttons (WhatsApp & Print) -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 space-y-2 no-print">
+                <div class="flex gap-2">
+                    <input type="tel" id="whatsapp-phone" placeholder="מספר נייד לשליחה (למשל: 0501234567)" class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    <button onclick="sendReceiptWhatsApp('app')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-lg text-sm transition flex items-center gap-1.5 shadow">
+                        <i class="fa-brands fa-whatsapp text-lg"></i>
+                        <span>שלח</span>
+                    </button>
+                </div>
+                <div class="flex gap-2 text-xs">
+                    <button onclick="sendReceiptWhatsApp('web')" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-1.5 rounded-lg transition text-center">
+                        <i class="fa-solid fa-globe ml-1"></i> פתח ב-WhatsApp Web
+                    </button>
+                    <button onclick="window.print()" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white font-semibold py-1.5 rounded-lg transition text-center">
+                        <i class="fa-solid fa-print ml-1"></i> הדפס / שמור כ-PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Price List Modal -->
+    <div id="manage-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[85vh]">
+            <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-lg"><i class="fa-solid fa-pen-to-square text-amber-400 ml-2"></i>ניהול מחירון סיגריות</h3>
+                <button onclick="toggleManageModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+
+            <div class="p-4 border-b bg-slate-50">
+                <h4 class="text-xs font-bold text-slate-500 mb-2">הוספת סיגריה חדשה</h4>
+                <div class="flex gap-2">
+                    <input type="text" id="new-product-name" placeholder="שם הסיגריה / פאקט" class="flex-1 px-3 py-2 border rounded-lg text-sm">
+                    <input type="number" id="new-product-price" placeholder="מחיר" class="w-24 px-3 py-2 border rounded-lg text-sm">
+                    <button onclick="addNewProduct()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm transition">הוסף</button>
+                </div>
+            </div>
+
+            <div class="p-4 overflow-y-auto flex-1 divide-y divide-slate-100" id="manage-products-list">
+                <!-- Editable products list -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase Credentials (HARDCODED)
+        const SUPABASE_URL = 'https://vmahyufcadygkgwspfho.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_C2Ll6KqHt4S2O4ydumlYSQ_ci9C5siJ';
+
+        let defaultProducts = [
+            { id: '1', name: 'מרלבורו אדום', price: 340 },
+            { id: '2', name: 'מרלבורו לייט (גולד)', price: 340 },
+            { id: '3', name: 'פרלמנט נייט', price: 360 },
+            { id: '4', name: 'פרלמנט קצר', price: 360 },
+            { id: '5', name: 'ווינסטון כחול', price: 310 },
+            { id: '6', name: 'ווינסטון לייט', price: 310 },
+            { id: '7', name: 'L&M אדום', price: 300 },
+            { id: '8', name: 'L&M כחול', price: 300 },
+            { id: '9', name: 'קאמל הצהוב', price: 320 },
+            { id: '10', name: 'נקסט כחול', price: 280 }
+        ];
+
+        let products = [];
+        let cart = {}; 
+        let supabaseClient = null;
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            initSupabase();
+            await loadProducts();
+            renderProductsGrid();
+        });
+
+        function initSupabase() {
+            if (window.supabase) {
+                try {
+                    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                } catch(e) {
+                    console.error("Supabase init error:", e);
+                }
+            }
+        }
+
+        async function loadProducts() {
+            if (supabaseClient) {
+                try {
+                    const { data, error } = await supabaseClient.from('products').select('*').order('name');
+                    if (!error && data && data.length > 0) {
+                        products = data;
+                        return;
+                    }
+                } catch (err) {
+                    console.warn("Cloud fallback to default:", err);
+                }
+            }
+
+            const saved = localStorage.getItem('cigarette_products');
+            if (saved) {
+                products = JSON.parse(saved);
+            } else {
+                products = defaultProducts;
+                saveProductsLocally();
+            }
+        }
+
+        function saveProductsLocally() {
+            localStorage.setItem('cigarette_products', JSON.stringify(products));
+        }
+
+        async function saveProductToCloud(product) {
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('products').upsert([product]);
+                } catch (e) {
+                    console.error("Cloud save error:", e);
+                }
+            }
+        }
+
+        async function deleteProductFromCloud(id) {
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('products').delete().eq('id', id);
+                } catch (e) {
+                    console.error("Cloud delete error:", e);
+                }
+            }
+        }
+
+        function renderProductsGrid(filterText = '') {
+            const grid = document.getElementById('products-grid');
+            grid.innerHTML = '';
+
+            const filtered = products.filter(p => p.name.includes(filterText));
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-8 text-slate-400">לא נמצאו מוצרים.</div>`;
+                return;
+            }
+
+            filtered.forEach(p => {
+                const qty = cart[p.id] || 0;
+                const card = document.createElement('div');
+                card.className = `bg-white rounded-xl p-3 shadow-sm border transition ${qty > 0 ? 'border-amber-500 bg-amber-50/30' : 'border-slate-200'}`;
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="font-bold text-slate-800 text-base">${p.name}</span>
+                        <span class="text-sm font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">${p.price} ₪</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-1">
+                        <span class="text-xs text-slate-500">כמות:</span>
+                        <div class="flex items-center gap-2">
+                            <button onclick="updateQty('${p.id}', -1)" class="w-8 h-8 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold flex items-center justify-center text-base transition">-</button>
+                            <span class="w-6 text-center font-bold text-slate-900">${qty}</span>
+                            <button onclick="updateQty('${p.id}', 1)" class="w-8 h-8 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold flex items-center justify-center text-base transition">+</button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            calculateTotal();
+        }
+
+        function updateQty(id, delta) {
+            const current = cart[id] || 0;
+            const newQty = Math.max(0, current + delta);
+            if (newQty === 0) {
+                delete cart[id];
+            } else {
+                cart[id] = newQty;
+            }
+            renderProductsGrid(document.getElementById('search-input').value);
+        }
+
+        function filterProducts() {
+            const val = document.getElementById('search-input').value.trim();
+            renderProductsGrid(val);
+        }
+
+        function calculateTotal() {
+            let totalCartons = 0;
+            let totalPrice = 0;
+
+            Object.keys(cart).forEach(id => {
+                const p = products.find(item => item.id == id);
+                if (p) {
+                    totalCartons += cart[id];
+                    totalPrice += cart[id] * p.price;
+                }
+            });
+
+            document.getElementById('total-cartons-count').innerText = totalCartons;
+            document.getElementById('total-price-sum').innerText = totalPrice.toLocaleString();
+        }
+
+        function resetCart() {
+            cart = {};
+            renderProductsGrid();
+        }
+
+        function openReceiptModal() {
+            const keys = Object.keys(cart);
+            if (keys.length === 0) {
+                alert('יש לבחור לפחות פאקט אחד לפני הפקת קבלה.');
+                return;
+            }
+
+            const customerName = document.getElementById('customer-name').value || 'לקוח קבוע';
+            document.getElementById('receipt-customer-name').innerText = customerName;
+
+            const now = new Date();
+            document.getElementById('receipt-date').innerText = now.toLocaleString('he-IL', { dateStyle: 'medium', timeStyle: 'short' });
+
+            const tbody = document.getElementById('receipt-items-body');
+            tbody.innerHTML = '';
+
+            let grandTotal = 0;
+            let totalCartons = 0;
+
+            keys.forEach(id => {
+                const p = products.find(item => item.id == id);
+                if (p) {
+                    const qty = cart[id];
+                    const subtotal = qty * p.price;
+                    grandTotal += subtotal;
+                    totalCartons += qty;
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="py-2 font-medium text-slate-800">${p.name}</td>
+                        <td class="py-2 text-center font-bold text-slate-700">${qty}</td>
+                        <td class="py-2 text-left font-semibold text-slate-900">${subtotal.toLocaleString()} ₪</td>
+                    `;
+                    tbody.appendChild(row);
+                }
+            });
+
+            document.getElementById('receipt-total-sum').innerText = grandTotal.toLocaleString() + ' ₪';
+            document.getElementById('receipt-total-cartons').innerText = totalCartons;
+
+            document.getElementById('receipt-modal').classList.remove('hidden');
+        }
+
+        function closeReceiptModal() {
+            document.getElementById('receipt-modal').classList.add('hidden');
+        }
+
+        function sendReceiptWhatsApp(mode = 'app') {
+            const rawPhone = document.getElementById('whatsapp-phone').value.trim();
+            if (!rawPhone) {
+                alert('אנא הזן מספר טלפון לשליחה ב-WhatsApp.');
+                return;
+            }
+
+            let cleanPhone = rawPhone.replace(/\D/g, '');
+            if (cleanPhone.startsWith('0')) {
+                cleanPhone = '972' + cleanPhone.substring(1);
+            }
+
+            const customerName = document.getElementById('customer-name').value || 'לקוח';
+            const now = new Date().toLocaleDateString('he-IL');
+
+            let text = `*חשבון פאקטים - ${customerName}*\nתאריך: ${now}\n-----------------------------\n`;
+
+            let grandTotal = 0;
+            let totalCartons = 0;
+
+            Object.keys(cart).forEach(id => {
+                const p = products.find(item => item.id == id);
+                if (p) {
+                    const qty = cart[id];
+                    const subtotal = qty * p.price;
+                    grandTotal += subtotal;
+                    totalCartons += qty;
+                    text += `• ${p.name}: ${qty} פאקטים = ${subtotal.toLocaleString()} ₪\n`;
+                }
+            });
+
+            text += `-----------------------------\n`;
+            text += `*סה"כ פאקטים:* ${totalCartons}\n`;
+            text += `*סה"כ לתשלום:* ${grandTotal.toLocaleString()} ₪\n\nתודה רבה!`;
+
+            const encodedText = encodeURIComponent(text);
+
+            let url = '';
+            if (mode === 'web') {
+                url = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodedText}`;
+            } else {
+                url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedText}`;
+            }
+
+            window.open(url, '_blank');
+        }
+
+        function toggleManageModal() {
+            const modal = document.getElementById('manage-modal');
+            if (modal.classList.contains('hidden')) {
+                renderManageList();
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function renderManageList() {
+            const container = document.getElementById('manage-products-list');
+            container.innerHTML = '';
+
+            products.forEach(p => {
+                const row = document.createElement('div');
+                row.className = 'py-3 flex items-center justify-between gap-2';
+                row.innerHTML = `
+                    <span class="font-medium text-slate-800 flex-1">${p.name}</span>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="edit-price-${p.id}" value="${p.price}" class="w-20 px-2 py-1 border rounded text-sm text-center font-bold">
+                        <button onclick="updateProductPrice('${p.id}')" class="text-xs bg-emerald-600 text-white px-2.5 py-1.5 rounded hover:bg-emerald-700">שמור</button>
+                        <button onclick="deleteProduct('${p.id}')" class="text-xs bg-rose-100 text-rose-600 px-2 py-1.5 rounded hover:bg-rose-200"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        async function updateProductPrice(id) {
+            const newPrice = parseFloat(document.getElementById(`edit-price-${id}`).value);
+            if (isNaN(newPrice) || newPrice <= 0) return;
+
+            const product = products.find(p => p.id == id);
+            if (product) {
+                product.price = newPrice;
+                saveProductsLocally();
+                await saveProductToCloud(product);
+                renderProductsGrid();
+                alert('המחיר עודכן בהצלחה בענן!');
+            }
+        }
+
+        async function addNewProduct() {
+            const name = document.getElementById('new-product-name').value.trim();
+            const price = parseFloat(document.getElementById('new-product-price').value);
+
+            if (!name || isNaN(price)) {
+                alert('יש למלא שם מוצר ומחיר תקינים.');
+                return;
+            }
+
+            const newProd = { id: Date.now().toString(), name, price };
+            products.push(newProd);
+
+            saveProductsLocally();
+            await saveProductToCloud(newProd);
+
+            document.getElementById('new-product-name').value = '';
+            document.getElementById('new-product-price').value = '';
+
+            renderManageList();
+            renderProductsGrid();
+        }
+
+        async function deleteProduct(id) {
+            if (confirm('האם למחוק מוצר זה מהמחירון?')) {
+                products = products.filter(p => p.id != id);
+                delete cart[id];
+                saveProductsLocally();
+                await deleteProductFromCloud(id);
+                renderManageList();
+                renderProductsGrid();
+            }
+        }
+    </script>
+</body>
+</html>
