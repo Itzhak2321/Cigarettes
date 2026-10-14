@@ -3,41 +3,61 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ניהול מחירון סיגריות</title>
+  <title>קבלות ומחיקונים</title>
   <style>
     * {
       box-sizing: border-box;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
     body {
-      background-color: #0f172a;
-      color: #f8fafc;
+      background-color: #0b1329;
+      color: #ffffff;
       margin: 0;
-      padding: 20px;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
     }
 
-    /* קונטיינר ראשי */
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
+    /* קונטיינר הכפתורים הראשיים */
+    .main-container {
+      width: 90%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
 
-    /* כפתור פתיחת מודאל */
-    .btn-main {
+    .btn {
       width: 100%;
-      padding: 14px;
-      background-color: #2563eb;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
+      padding: 18px 20px;
+      font-size: 18px;
       font-weight: bold;
+      border: none;
+      border-radius: 10px;
       cursor: pointer;
-      margin-bottom: 20px;
+      text-align: center;
+      transition: transform 0.1s ease, opacity 0.2s ease;
     }
 
-    /* שרפרף / הכהיית רקע המודאל */
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-blue {
+      background-color: #2563eb;
+      color: #ffffff;
+    }
+
+    .btn-green {
+      background-color: #22c55e;
+      color: #ffffff;
+    }
+
+    /* רקע כהה למודאל החלון הצף */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -45,146 +65,199 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.75);
       z-index: 1000;
       justify-content: center;
       align-items: center;
-      padding: 10px;
+      padding: 15px;
     }
 
     .modal-overlay.active {
       display: flex;
     }
 
-    /* מודאל רספונסיבי לטלפון */
+    /* תוכן המודאל המותאם לנייד */
     .modal-content {
-      background-color: #1e293b;
-      border-radius: 12px;
+      background-color: #111c3a;
+      border-radius: 14px;
       width: 100%;
-      max-width: 480px;
-      max-height: 90vh;
-      overflow-y: auto;
-      padding: 20px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      max-width: 450px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      overflow: hidden;
     }
 
     .modal-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid #334155;
-      padding-bottom: 12px;
-      margin-bottom: 16px;
+      padding: 16px 20px;
+      background-color: #18264d;
+      border-bottom: 1px solid #233566;
     }
 
-    .modal-header h2 {
+    .modal-header h3 {
       margin: 0;
-      font-size: 20px;
+      font-size: 18px;
+      color: #ffffff;
     }
 
     .close-btn {
       background: none;
       border: none;
-      color: #94a3b8;
+      color: #a0aec0;
       font-size: 24px;
       cursor: pointer;
+      line-height: 1;
     }
 
-    /* טפסים ושדות במודאל - סידור בטור לנייד */
-    .form-section {
+    .modal-body {
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* טופס הוספה/עריכה רספונסיבי במודאל */
+    .add-section {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      margin-bottom: 20px;
-      background: #0f172a;
+      background-color: #18264d;
       padding: 12px;
-      border-radius: 8px;
+      border-radius: 10px;
     }
 
-    .item-row {
+    .add-section-title {
+      font-size: 14px;
+      color: #cbd5e1;
+      margin-bottom: 4px;
+    }
+
+    .input-group {
       display: flex;
-      flex-direction: column; /* טור במסכים קטנים כדי שלא ייחתך */
       gap: 8px;
-      background: #334155;
-      padding: 10px;
-      border-radius: 8px;
-      margin-bottom: 8px;
+      flex-direction: column;
     }
 
     input {
       width: 100%;
-      padding: 10px;
-      border: 1px solid #475569;
-      border-radius: 6px;
-      background: #0f172a;
-      color: white;
+      padding: 12px;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      background-color: #0b1329;
+      color: #ffffff;
       font-size: 15px;
+      outline: none;
     }
 
-    .btn-action {
-      padding: 10px 16px;
+    input:focus {
+      border-color: #3b82f6;
+    }
+
+    .items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .item-card {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background-color: #18264d;
+      padding: 12px;
+      border-radius: 8px;
+    }
+
+    .item-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn-sm {
+      padding: 10px 14px;
+      font-size: 14px;
       border: none;
       border-radius: 6px;
-      font-weight: bold;
       cursor: pointer;
-      width: 100%; /* רוחב מלא בטלפון */
+      font-weight: bold;
+      white-space: nowrap;
     }
 
-    .btn-add { background-color: #16a34a; color: white; }
-    .btn-save { background-color: #059669; color: white; }
-    .btn-delete { background-color: #dc2626; color: white; }
-    .btn-whatsapp { background-color: #25d366; color: white; margin-top: 10px; }
+    .btn-save {
+      background-color: #10b981;
+      color: white;
+      flex: 1;
+    }
 
-    /* מעבר לרוחב שורה במסכים רחבים יותר */
-    @media (min-width: 480px) {
-      .form-section, .item-row {
+    .btn-delete {
+      background-color: #ef4444;
+      color: white;
+    }
+
+    .btn-add {
+      background-color: #3b82f6;
+      color: white;
+      padding: 12px;
+      margin-top: 4px;
+    }
+
+    /* התאמה רספונסיבית מעל 400px כדי להציב קלטים לצד כפתורים במידת האפשר */
+    @media (min-width: 400px) {
+      .input-group {
         flex-direction: row;
-        align-items: center;
-      }
-      .btn-action {
-        width: auto;
       }
     }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <button class="btn-main" onclick="openModal()">ניהול מחירון סיגריות</button>
-    
-    <!-- כפתור שליחה לוואטסאפ -->
-    <button class="btn-main btn-whatsapp" onclick="sendToWhatsApp('0500000000')">שליחת קבלה בוואטסאפ</button>
+  <!-- כפתורי המסך הראשי -->
+  <div class="main-container">
+    <button class="btn btn-blue" onclick="openModal()">ניהול מחירון סיגריות</button>
+    <button class="btn btn-green" onclick="sendReceiptWhatsApp()">שליחת קבלה בוואטסאפ</button>
   </div>
 
-  <!-- חלון צף (Modal) -->
+  <!-- חלון צף לניהול המחירון -->
   <div class="modal-overlay" id="priceModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>ניהול מחירון סיגריות</h2>
+        <h3>ניהול מחירון סיגריות</h3>
         <button class="close-btn" onclick="closeModal()">&times;</button>
       </div>
 
-      <!-- הוספת פריט חדש -->
-      <div class="form-section">
-        <input type="text" id="newName" placeholder="שם הסיגריה / פאקט">
-        <input type="number" id="newPrice" placeholder="מחיר">
-        <button class="btn-action btn-add" onclick="addItem()">הוסף</button>
-      </div>
+      <div class="modal-body">
+        <!-- טופס הוספת סיגריה חדשה -->
+        <div class="add-section">
+          <div class="add-section-title">הוספת סיגריה חדשה</div>
+          <div class="input-group">
+            <input type="text" id="newName" placeholder="שם הסיגריה / פאקט">
+            <input type="number" id="newPrice" placeholder="מחיר">
+          </div>
+          <button class="btn-sm btn-add" onclick="addItem()">הוסף למחירון</button>
+        </div>
 
-      <!-- רשימת פריטים לעריכה -->
-      <div id="itemsContainer">
-        <div class="item-row">
-          <input type="text" value="יצחק">
-          <input type="number" value="10">
-          <button class="btn-action btn-save">שמור</button>
-          <button class="btn-action btn-delete">מחק</button>
+        <!-- רשימת הפריטים הקיימים -->
+        <div class="items-list" id="itemsList">
+          <!-- הפריטים יתרנדרו כאן דרך ה-JavaScript -->
         </div>
       </div>
     </div>
   </div>
 
   <script>
+    // טעינת מחירון מ-localStorage או הגדרת ברירת מחדל
+    let items = JSON.parse(localStorage.getItem('cigarette_prices')) || [
+      { id: 1, name: 'יצחק', price: 10 }
+    ];
+
     function openModal() {
+      renderItems();
       document.getElementById('priceModal').classList.add('active');
     }
 
@@ -192,13 +265,85 @@
       document.getElementById('priceModal').classList.remove('active');
     }
 
-    // פתיחה ישירה באפליקציית וואטסאפ בנייד
-    function sendToWhatsApp(phone) {
-      const cleanPhone = phone.replace(/\D/g, '');
-      const text = encodeURIComponent("הנה הקבלה/המחירון המעודכן שלך:");
-      
-      // שימוש בפרוטוקול whatsapp:// לפתיחת האפליקציה הישירה
-      window.location.href = `whatsapp://send?phone=${cleanPhone}&text=${text}`;
+    function saveToStorage() {
+      localStorage.setItem('cigarette_prices', JSON.stringify(items));
+    }
+
+    function renderItems() {
+      const container = document.getElementById('itemsList');
+      container.innerHTML = '';
+
+      items.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.innerHTML = `
+          <input type="text" value="${item.name}" id="name-${index}">
+          <div class="item-controls">
+            <input type="number" value="${item.price}" id="price-${index}">
+            <button class="btn-sm btn-save" onclick="updateItem(${index})">שמור</button>
+            <button class="btn-sm btn-delete" onclick="deleteItem(${index})">🗑️</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function addItem() {
+      const nameInput = document.getElementById('newName');
+      const priceInput = document.getElementById('newPrice');
+
+      if (!nameInput.value || !priceInput.value) {
+        alert('נא למלא שם ומחיר');
+        return;
+      }
+
+      items.push({
+        id: Date.now(),
+        name: nameInput.value,
+        price: Number(priceInput.value)
+      });
+
+      saveToStorage();
+      renderItems();
+
+      nameInput.value = '';
+      priceInput.value = '';
+    }
+
+    function updateItem(index) {
+      const nameVal = document.getElementById(`name-${index}`).value;
+      const priceVal = document.getElementById(`price-${index}`).value;
+
+      items[index].name = nameVal;
+      items[index].price = Number(priceVal);
+
+      saveToStorage();
+      alert('השינויים נשמרו בהצלחה!');
+    }
+
+    function deleteItem(index) {
+      if (confirm('האם למחוק פריט זה?')) {
+        items.splice(index, 1);
+        saveToStorage();
+        renderItems();
+      }
+    }
+
+    // פונקציית שליחה ישירה לאפליקציית WhatsApp
+    function sendReceiptWhatsApp() {
+      if (items.length === 0) {
+        alert('המחירון ריק.');
+        return;
+      }
+
+      let text = "🧾 *קבלת מחירון סיגריות:*\n\n";
+      items.forEach(item => {
+        text += `• ${item.name}: ₪${item.price}\n`;
+      });
+
+      const encodedText = encodeURIComponent(text);
+      // whatsapp:// גורם לפתיחה ישירה של אפליקציית וואטסאפ בטלפון
+      window.location.href = `whatsapp://send?text=${encodedText}`;
     }
   </script>
 </body>
